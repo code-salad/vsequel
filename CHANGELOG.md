@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/code-salad/vsequel/compare/v3.0.0...v3.0.1) (2025-09-06)
+
+
+### Bug Fixes
+
+* cli list missing schema ([42f1f21](https://github.com/code-salad/vsequel/commit/42f1f210b597ee74d91f5dc4ec49ee84bc6bcf12))
+
 # [3.0.0](https://github.com/code-salad/vsequel/compare/v2.1.0...v3.0.0) (2025-09-06)
 
 
