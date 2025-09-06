@@ -98,6 +98,9 @@ const SAFE_QUERY_HELP_PATTERN =
 const UNKNOWN_COMMAND_PATTERN = /Not a valid subcommand name/;
 const UNKNOWN_ARGUMENTS_PATTERN = /Unknown arguments/;
 const PUBLIC_SCHEMA_PATTERN = /public\./;
+const PUBLIC_CATEGORIES_PATTERN = /public\.categories/;
+const PUBLIC_CUSTOMERS_PATTERN = /public\.customers/;
+const PUBLIC_ORDERS_PATTERN = /public\.orders/;
 const FROM_PATTERN = /FROM/;
 const JOIN_SQL_PATTERN = /JOIN/;
 const ON_PATTERN = /ON/;
@@ -358,14 +361,56 @@ describe('CLI Integration Tests with Mock Database', () => {
   // These tests would require a running database, so we'll skip them in CI
   // but they're useful for local development
 
-  test('should list tables', async () => {
+  test('should list tables with schema information', async () => {
     const result = await $(`npx tsx ${CLI_PATH} list --db "$TEST_POSTGRES_URL"`)
       .quiet()
       .nothrow();
 
     if (process.env.TEST_POSTGRES_URL) {
       const output = result.stdout.toString();
+      // Should show tables in schema.table format
       assert.match(output, PUBLIC_SCHEMA_PATTERN);
+      // Should contain specific tables with schema prefix
+      assert.match(output, PUBLIC_CATEGORIES_PATTERN);
+      assert.match(output, PUBLIC_CUSTOMERS_PATTERN);
+      assert.match(output, PUBLIC_ORDERS_PATTERN);
+      if (result.exitCode !== 0) {
+        console.error('Command failed with exit code:', result.exitCode);
+        console.error('Stderr:', result.stderr.toString());
+        console.error('Stdout:', result.stdout.toString());
+      }
+      assert.equal(result.exitCode, 0);
+    }
+  });
+
+  test('should list tables in JSON format with schema information', async () => {
+    const result = await $(
+      `npx tsx ${CLI_PATH} list --db "$TEST_POSTGRES_URL" --output json`
+    )
+      .quiet()
+      .nothrow();
+
+    if (process.env.TEST_POSTGRES_URL) {
+      const output = result.stdout.toString();
+      const json = safeJsonParse(output) as string[];
+
+      // Should return array of tables with schema prefix
+      assert.ok(Array.isArray(json));
+      assert.ok(json.length > 0);
+
+      // Should contain tables in schema.table format
+      const hasPublicCategories = json.some(
+        (table) => table === 'public.categories'
+      );
+      const hasPublicCustomers = json.some(
+        (table) => table === 'public.customers'
+      );
+      const hasPublicOrders = json.some((table) => table === 'public.orders');
+
+      assert.ok(hasPublicCategories, 'Should contain public.categories');
+      assert.ok(hasPublicCustomers, 'Should contain public.customers');
+      assert.ok(hasPublicOrders, 'Should contain public.orders');
+
       if (result.exitCode !== 0) {
         console.error('Command failed with exit code:', result.exitCode);
         console.error('Stderr:', result.stderr.toString());

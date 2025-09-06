@@ -7,6 +7,7 @@ export const listCommand = command({
   description: `List all tables available in the database.
   
   This command discovers and displays all tables across all schemas in your database.
+  Tables are shown in the format 'schema.table' for clarity.
   Useful for exploring database structure and finding specific tables.
   
   Examples:
@@ -21,15 +22,17 @@ export const listCommand = command({
       short: 'o',
       defaultValue: () => 'simple' as const,
       description: `Table listing output format (default: simple):
-        • simple - One table name per line, easy to read and pipe to other commands
-        • json - Array of table names in JSON format for programmatic processing`,
+        • simple - One table name per line (schema.table), easy to read and pipe to other commands
+        • json - Array of table names (schema.table) in JSON format for programmatic processing`,
     }),
   },
   handler: async ({ db, output }): Promise<void> => {
     try {
       const databaseService = DatabaseService.fromUrl(db);
       const schemas = await databaseService.getAllSchemas();
-      const tableNames = schemas.map((schema) => schema.name);
+      const tableNames = schemas.map(
+        (schema) => `${schema.schema}.${schema.name}`
+      );
 
       if (output === 'json') {
         console.log(JSON.stringify(tableNames, null, 2));
