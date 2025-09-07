@@ -459,7 +459,7 @@ export class MySQLProvider implements DatabaseProvider {
       return `${selectClause}\n${fromClause}`;
     }
 
-    return `${selectClause}\n${fromClause}\n${joinStatements.join('\n')};`;
+    return `${selectClause}\n${fromClause}\n${joinStatements.join('\n')}`;
   };
 
   query = async (sql: string): Promise<Record<string, unknown>[]> => {
