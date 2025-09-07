@@ -5,8 +5,8 @@ import type { TableReference } from '../src/services/database-provider/types';
 import { TEST_MYSQL_URL, TEST_POSTGRES_URL } from './global-setup';
 
 // Use the global test database URLs
-const postgresUrl = process.env.TEST_POSTGRES_URL || TEST_POSTGRES_URL;
-const mysqlUrl = process.env.TEST_MYSQL_URL || TEST_MYSQL_URL;
+const postgresUrl = TEST_POSTGRES_URL;
+const mysqlUrl = TEST_MYSQL_URL;
 const MYSQL_DB = 'reflect_erd';
 
 describe('docker integration tests', () => {
@@ -190,7 +190,7 @@ describe('docker integration tests', () => {
     });
 
     test(
-      'should return null for empty input',
+      'should return empty array for empty input',
       { timeout: 15_000 },
       async () => {
         const db = DatabaseService.fromUrl(postgresUrl);
@@ -199,7 +199,8 @@ describe('docker integration tests', () => {
 
         const result = await db.getTableJoins({ tables });
 
-        assert.equal(result, null);
+        assert.ok(Array.isArray(result));
+        assert.equal(result.length, 0);
       }
     );
 
@@ -216,8 +217,9 @@ describe('docker integration tests', () => {
 
         const result = await db.getTableJoins({ tables });
 
-        // These tables aren't connected, so should return null
-        assert.equal(result, null);
+        // These tables aren't connected, so should return empty array
+        assert.ok(Array.isArray(result));
+        assert.equal(result.length, 0);
       }
     );
   });
@@ -475,13 +477,14 @@ describe('docker integration tests', () => {
 
         const result = await db.getTableJoins({ tables });
 
-        // If these tables aren't connected through FKs, should return null
+        // If these tables aren't connected through FKs, should return empty array
         // or find a very long path through multiple intermediate tables
-        if (result && result.length > 0) {
+        if (result.length > 0) {
           const path = result[0]?.joinPath;
           assert.ok(path?.relations.length > 2); // Long path
         } else {
-          assert.equal(result, null); // No connection
+          assert.ok(Array.isArray(result));
+          assert.equal(result.length, 0); // No connection
         }
       }
     );

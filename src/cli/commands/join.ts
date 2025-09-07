@@ -53,7 +53,7 @@ export const joinCommand = command({
         maxDepth: 6,
       });
 
-      if (!results || results.length === 0) {
+      if (results.length === 0) {
         console.error('No join path found between the specified tables');
         process.exit(1);
       }

@@ -30,7 +30,7 @@ export const safeQueryCommand = command({
       const result = await databaseService.safeQuery({ sql });
 
       // Ensure we always output valid JSON, even for empty results
-      const output = result || [];
+      const output = result;
       console.log(JSON.stringify(output, null, 2));
     } catch (error) {
       handleCliError(error);

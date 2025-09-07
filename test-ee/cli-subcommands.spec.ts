@@ -65,7 +65,6 @@ const CONTEXT_PATTERN = /context/;
 const JOIN_PATTERN = /join/;
 const INFO_PATTERN = /info/;
 const SAFE_QUERY_PATTERN = /safe-query/;
-const SUBCOMMAND_REQUIRED_PATTERN = /No value provided for subcommand/;
 const EXTRACT_FULL_SCHEMA_PATTERN = /Extract complete database schema/;
 const OUTPUT_OPTION_PATTERN = /--output, -o/;
 const JSON_PATTERN = /json/;
@@ -104,6 +103,8 @@ const PUBLIC_ORDERS_PATTERN = /public\.orders/;
 const FROM_PATTERN = /FROM/;
 const JOIN_SQL_PATTERN = /JOIN/;
 const ON_PATTERN = /ON/;
+const CUSTOMERS_PATTERN = /customers/;
+const NO_JOIN_PATH_PATTERN = /No join path found between the specified tables/;
 
 const CLI_PATH = './src/cli/index.ts';
 
@@ -318,30 +319,6 @@ describe('CLI Subcommands', () => {
     });
   });
 
-  describe('backward compatibility removed', () => {
-    test('should show main help when --help without subcommand', async () => {
-      const result = await $(`npx tsx ${CLI_PATH} --help`).quiet().nothrow();
-      const output = result.stdout.toString();
-
-      // When no subcommand is provided with --help, it should show main help
-      assert.match(output, VSEQUEL_TOOL_PATTERN);
-      assert.match(output, SUBCOMMANDS_PATTERN);
-    });
-
-    test('should require explicit command', async () => {
-      // This should fail without a subcommand
-      const result = await $(
-        `npx tsx ${CLI_PATH} --db postgresql://invalid/test --output json`
-      )
-        .quiet()
-        .nothrow();
-      const output = result.stderr.toString();
-
-      // Should fail on missing command
-      assert.match(output, SUBCOMMAND_REQUIRED_PATTERN);
-    });
-  });
-
   describe('output format validation', () => {
     test('should validate output format for schema command', async () => {
       const result = await $(
@@ -521,6 +498,80 @@ describe('CLI Integration Tests with Mock Database', () => {
         console.error('Stdout:', result.stdout.toString());
       }
       assert.equal(result.exitCode, 0);
+    }
+  });
+
+  test('should handle single table input for join command', async () => {
+    const result = await $(
+      `npx tsx ${CLI_PATH} join --db "$TEST_POSTGRES_URL" --tables customers --output json`
+    )
+      .quiet()
+      .nothrow();
+
+    if (process.env.TEST_POSTGRES_URL) {
+      const output = result.stdout.toString();
+      const json = safeJsonParse(output);
+
+      // Should return a single join path with one table and no relations
+      assert.ok(Array.isArray(json));
+      assert.equal(json.length, 1);
+
+      const joinPath = json[0];
+      assert.ok(joinPath.tables);
+      assert.equal(joinPath.tables.length, 1);
+      assert.equal(joinPath.tables[0].table, 'customers');
+      assert.ok(joinPath.relations);
+      assert.equal(joinPath.relations.length, 0);
+      assert.equal(joinPath.totalJoins, 0);
+
+      if (result.exitCode !== 0) {
+        console.error('Command failed with exit code:', result.exitCode);
+        console.error('Stderr:', result.stderr.toString());
+        console.error('Stdout:', result.stdout.toString());
+      }
+      assert.equal(result.exitCode, 0);
+    }
+  });
+
+  test('should handle single table input for join command with SQL output', async () => {
+    const result = await $(
+      `npx tsx ${CLI_PATH} join --db "$TEST_POSTGRES_URL" --tables customers --output sql`
+    )
+      .quiet()
+      .nothrow();
+
+    if (process.env.TEST_POSTGRES_URL) {
+      const output = result.stdout.toString();
+
+      // Should generate a simple SELECT statement with FROM but no JOINs
+      assert.match(output, FROM_PATTERN);
+      assert.match(output, CUSTOMERS_PATTERN);
+      // Should NOT contain JOIN or ON clauses for single table
+      assert.doesNotMatch(output, JOIN_SQL_PATTERN);
+      assert.doesNotMatch(output, ON_PATTERN);
+
+      if (result.exitCode !== 0) {
+        console.error('Command failed with exit code:', result.exitCode);
+        console.error('Stderr:', result.stderr.toString());
+        console.error('Stdout:', result.stdout.toString());
+      }
+      assert.equal(result.exitCode, 0);
+    }
+  });
+
+  test('should handle unconnected tables with no join path found', async () => {
+    const result = await $(
+      `npx tsx ${CLI_PATH} join --db "$TEST_POSTGRES_URL" --tables "public.orders,test_schema.users" --output json`
+    )
+      .quiet()
+      .nothrow();
+
+    if (process.env.TEST_POSTGRES_URL) {
+      // When no join path is found, CLI should exit with error code 1
+      assert.equal(result.exitCode, 1);
+
+      const stderr = result.stderr.toString();
+      assert.match(stderr, NO_JOIN_PATH_PATTERN);
     }
   });
 

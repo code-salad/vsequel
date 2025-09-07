@@ -894,11 +894,10 @@ export class DatabaseService {
     tables: TableReference[];
     maxDepth?: number;
   }): Promise<
-    | {
-        joinPath: JoinPath;
-        sql: string;
-      }[]
-    | null
+    {
+      joinPath: JoinPath;
+      sql: string;
+    }[]
   > => {
     try {
       // Input validation
@@ -907,7 +906,7 @@ export class DatabaseService {
       }
 
       if (tables.length === 0) {
-        return null;
+        return [];
       }
 
       // Validate table references
@@ -930,7 +929,7 @@ export class DatabaseService {
       const joinPaths = await this.findAllJoinPaths({ tables, maxDepth });
 
       if (!joinPaths || joinPaths.length === 0) {
-        return null;
+        return [];
       }
 
       // Generate SQL for each join path using provider-specific SQL generation
