@@ -1,3 +1,10 @@
+## [3.0.3](https://github.com/code-salad/vsequel/compare/v3.0.2...v3.0.3) (2025-09-07)
+
+
+### Bug Fixes
+
+* remove ; suffix at the end of sql ([f1fbfd4](https://github.com/code-salad/vsequel/commit/f1fbfd4f5a2587ece2f8ae870dce16a632fc6c87))
+
 ## [3.0.2](https://github.com/code-salad/vsequel/compare/v3.0.1...v3.0.2) (2025-09-07)
 
 
