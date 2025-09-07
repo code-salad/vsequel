@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/code-salad/vsequel/compare/v3.0.1...v3.0.2) (2025-09-07)
+
+
+### Bug Fixes
+
+* join will return an empty array when there's no join found ([4af94a7](https://github.com/code-salad/vsequel/commit/4af94a7e7ae11251de3ac7979ddd556ae85c2ae8))
+
 ## [3.0.1](https://github.com/code-salad/vsequel/compare/v3.0.0...v3.0.1) (2025-09-06)
 
 
