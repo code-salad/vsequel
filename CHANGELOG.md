@@ -1,3 +1,10 @@
+## [3.1.1](https://github.com/code-salad/vsequel/compare/v3.1.0...v3.1.1) (2025-09-09)
+
+
+### Bug Fixes
+
+* dev dependency ([#6](https://github.com/code-salad/vsequel/issues/6)) ([22ae1d7](https://github.com/code-salad/vsequel/commit/22ae1d77d57bc4445b935b1437ae4cbed631b678))
+
 # [3.1.0](https://github.com/code-salad/vsequel/compare/v3.0.3...v3.1.0) (2025-09-09)
 
 
