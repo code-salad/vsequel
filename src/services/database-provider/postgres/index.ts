@@ -1,3 +1,4 @@
+import { default as PQueue } from 'p-queue';
 import postgres from 'postgres';
 import type {
   ColumnSchema,
@@ -15,41 +16,82 @@ import type {
 
 export class PostgresProvider implements DatabaseProvider {
   private readonly databaseUrl: string;
+  private maxConcurrency = 10;
 
-  constructor(databaseUrl: string) {
+  constructor(databaseUrl: string, options?: { maxConcurrency?: number }) {
     this.databaseUrl = databaseUrl;
+    this.maxConcurrency = options?.maxConcurrency || 10;
   }
 
-  async getAllTableNames(): Promise<Array<{ schema: string; table: string }>> {
-    const sql = postgres(this.databaseUrl, { max: 1 });
-    try {
-      const tables = await sql<
-        {
-          schema_name: string;
-          table_name: string;
-        }[]
-      > /*sql*/`
-        select
-          n.nspname as schema_name,
-          c.relname as table_name
-        from pg_class c
-        join pg_namespace n on n.oid = c.relnamespace
-        where c.relkind in ('r', 'p', 'v')
-          and n.nspname not in (
-            'pg_catalog',
-            'information_schema',
-            'pglogical_origin',
-            'pglogical',
-            'pg_temp_1',
-            'pg_toast'
-          )
-          and n.nspname not like 'pg_toast_temp%'
-          and n.nspname not like 'pg_temp%'
-          and n.nspname not like 'pg_toast%'
-        order by n.nspname, c.relname;
-      `;
+  private createConnection() {
+    return postgres(this.databaseUrl, {
+      max: 1, // Single connection
+      idle_timeout: 1000, // Close quickly
+      connect_timeout: 10_000,
+      prepare: false,
+      transform: undefined,
+    });
+  }
 
-      return tables.map((t) => ({
+  async getAllTableNames({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<Array<{ schema: string; table: string }>> {
+    const sql = this.createConnection();
+
+    try {
+      let tables: {
+        schema_name: string;
+        table_name: string;
+      }[];
+
+      if (shouldShowSystem) {
+        // Include all tables including system tables
+        tables = await sql<
+          {
+            schema_name: string;
+            table_name: string;
+          }[]
+        >`
+          select
+            n.nspname as schema_name,
+            c.relname as table_name
+          from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+          where c.relkind in ('r', 'p', 'v')
+          order by n.nspname, c.relname;
+        `;
+      } else {
+        // Exclude system schemas (default behavior)
+        tables = await sql<
+          {
+            schema_name: string;
+            table_name: string;
+          }[]
+        >`
+          select
+            n.nspname as schema_name,
+            c.relname as table_name
+          from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+          where c.relkind in ('r', 'p', 'v')
+            and n.nspname not in (
+              'pg_catalog',
+              'information_schema',
+              'pglogical_origin',
+              'pglogical',
+              'pg_temp_1',
+              'pg_toast'
+            )
+            and n.nspname not like 'pg_toast_temp%'
+            and n.nspname not like 'pg_temp%'
+            and n.nspname not like 'pg_toast%'
+          order by n.nspname, c.relname;
+        `;
+      }
+
+      return tables.map((t: { schema_name: string; table_name: string }) => ({
         schema: t.schema_name,
         table: t.table_name,
       }));
@@ -62,7 +104,7 @@ export class PostgresProvider implements DatabaseProvider {
     table: string;
     schema?: string;
   }): Promise<TableSchema> {
-    const sql = postgres(this.databaseUrl, { max: 1 });
+    const sql = this.createConnection();
     try {
       // Parse schema from URL parameters (e.g., ?schema=myschema or ?search_path=myschema)
       const urlParts = new URL(this.databaseUrl);
@@ -261,17 +303,30 @@ export class PostgresProvider implements DatabaseProvider {
     }
   }
 
-  async getAllSchemas(): Promise<TableSchema[]> {
+  async getAllSchemas({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<TableSchema[]> {
     // Get all table names using the existing method
-    const tables = await this.getAllTableNames();
+    const tables = await this.getAllTableNames({ shouldShowSystem });
 
-    // Pull schema for each table using the existing getSchema method
-    const tablePromises = tables.map(({ schema, table }) =>
-      this.getSchema({ table, schema })
+    // Use PQueue to limit concurrent database operations
+    const queue = new PQueue({ concurrency: this.maxConcurrency });
+
+    // Queue all schema fetching operations
+    const results = await Promise.all(
+      tables.map(({ schema, table }) =>
+        queue.add(async (): Promise<TableSchema> => {
+          return await this.getSchema({ table, schema });
+        })
+      )
     );
 
-    const results = await Promise.all(tablePromises);
-    return results;
+    // Filter out any void results (defensive programming)
+    return results.filter(
+      (result): result is TableSchema => result !== undefined
+    );
   }
 
   async getSampleData(params: {
@@ -279,7 +334,7 @@ export class PostgresProvider implements DatabaseProvider {
     limit: number;
     schema?: string;
   }): Promise<Record<string, unknown>[]> {
-    const sql = postgres(this.databaseUrl, { max: 1 });
+    const sql = this.createConnection();
     try {
       // Parse schema from URL parameters (e.g., ?schema=myschema or ?search_path=myschema)
       const urlParts = new URL(this.databaseUrl);
@@ -425,7 +480,7 @@ export class PostgresProvider implements DatabaseProvider {
   };
 
   query = async (sql: string): Promise<Record<string, unknown>[]> => {
-    const connection = postgres(this.databaseUrl, { max: 1 });
+    const connection = this.createConnection();
     try {
       const result = await connection.unsafe<Record<string, unknown>[]>(sql);
       return result;
@@ -435,7 +490,10 @@ export class PostgresProvider implements DatabaseProvider {
   };
 
   safeQuery = async (sql: string): Promise<Record<string, unknown>[]> => {
-    const connection = postgres(this.databaseUrl, { max: 1 });
+    // Create a new connection specifically for this safe query
+    // This ensures proper cleanup and prevents connection leaks
+    const connection = this.createConnection();
+
     let result: Record<string, unknown>[] = [];
 
     try {
@@ -453,6 +511,7 @@ export class PostgresProvider implements DatabaseProvider {
       // Re-throw actual errors
       throw error;
     } finally {
+      // Ensure connection is properly closed
       await connection.end();
     }
 

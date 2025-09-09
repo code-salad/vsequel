@@ -22,8 +22,12 @@ export class DatabaseService {
   private provider: DatabaseProvider;
   private providerName: 'postgres' | 'mysql';
   private relationDetails?: Map<string, JoinRelation[]>;
+  private maxConcurrency: number;
 
-  constructor({ provider }: { provider: DatabaseProvider }) {
+  constructor({
+    provider,
+    maxConcurrency = 10,
+  }: { provider: DatabaseProvider; maxConcurrency?: number }) {
     this.provider = provider;
     // Detect provider type based on instance
     if (provider instanceof PostgresProvider) {
@@ -34,31 +38,49 @@ export class DatabaseService {
       // Default fallback, could be extended for custom providers
       this.providerName = 'postgres';
     }
+    this.maxConcurrency = maxConcurrency;
   }
 
-  static fromUrl(databaseUrl: string): DatabaseService {
-    const provider = DatabaseService.createProvider(databaseUrl);
-    return new DatabaseService({ provider });
+  static fromUrl(
+    databaseUrl: string,
+    options?: { maxConcurrency?: number }
+  ): DatabaseService {
+    const provider = DatabaseService.createProvider({
+      databaseUrl,
+      maxConcurrency: options?.maxConcurrency,
+    });
+    return new DatabaseService({
+      provider,
+      maxConcurrency: options?.maxConcurrency,
+    });
   }
 
-  private static createProvider(databaseUrl: string): DatabaseProvider {
+  private static createProvider({
+    databaseUrl,
+    maxConcurrency,
+  }: {
+    databaseUrl: string;
+    maxConcurrency?: number;
+  }): DatabaseProvider {
     const url = databaseUrl.toLowerCase();
 
-    if (url.startsWith('postgresql://') || url.startsWith('postgres://')) {
-      return new PostgresProvider(databaseUrl);
+    if (url.includes('postgresql://') || url.includes('postgres://')) {
+      return new PostgresProvider(databaseUrl, { maxConcurrency });
     }
-    if (url.startsWith('mysql://') || url.startsWith('mysql2://')) {
-      return new MySQLProvider(databaseUrl);
+    if (url.includes('mysql://') || url.includes('mysql2://')) {
+      return new MySQLProvider(databaseUrl, { maxConcurrency });
     }
     throw new Error(
       `Unsupported database URL: ${databaseUrl}. Supported: postgresql://, postgres://, mysql://, mysql2://`
     );
   }
 
-  getAllTableNames = async (): Promise<
-    Array<{ schema: string; table: string }>
-  > => {
-    return await this.provider.getAllTableNames();
+  getAllTableNames = async ({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<Array<{ schema: string; table: string }>> => {
+    return await this.provider.getAllTableNames({ shouldShowSystem });
   };
 
   getSchema = async ({
@@ -71,14 +93,18 @@ export class DatabaseService {
     return await this.provider.getSchema({ table, schema });
   };
 
-  getAllSchemas = async (): Promise<TableSchema[]> => {
-    return await this.provider.getAllSchemas();
+  getAllSchemas = async ({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<TableSchema[]> => {
+    return await this.provider.getAllSchemas({ shouldShowSystem });
   };
 
   getSampleData = async ({
     table,
     schema,
-    limit = 10,
+    limit = 5,
   }: {
     table: string;
     schema?: string;
@@ -949,10 +975,12 @@ export class DatabaseService {
 
   getPlantuml = async ({
     type = 'full',
+    shouldShowSystem = false,
   }: {
     type?: 'full' | 'simple';
+    shouldShowSystem?: boolean;
   } = {}): Promise<string> => {
-    const schemas = await this.getAllSchemas();
+    const schemas = await this.getAllSchemas({ shouldShowSystem });
     const plantumlResult = generatePlantumlSchema({ schema: schemas });
     return type === 'simple' ? plantumlResult.simplified : plantumlResult.full;
   };

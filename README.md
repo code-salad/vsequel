@@ -33,6 +33,7 @@ A CLI tool and TypeScript library for extracting database schemas and generating
 - 🔗 **Join Path Finding** - Find all possible paths to join multiple tables, sorted by efficiency
 - 🛡️ **Safe Query Execution** - Test SQL queries safely with automatic rollback
 - 📝 **Sample Data** - Retrieve sample data from tables for documentation
+- 🔧 **System Tables Support** - Include system/internal tables with `--show-system` flag
 - 🚀 **Performance** - Parallel operations for fetching schema and data
 - 📦 **TypeScript First** - Full TypeScript support with detailed type definitions
 - 🎯 **CLI & Library** - Use as a command-line tool or import as a library
@@ -48,6 +49,9 @@ npx vsequel schema --db postgresql://localhost/mydb > schema.json
 
 # List all tables
 npx vsequel list --db postgresql://localhost/mydb
+
+# List all tables including system tables
+npx vsequel list --db postgresql://localhost/mydb --show-system
 
 # Find all ways to join tables
 npx vsequel join --db postgresql://localhost/mydb --tables orders,customers,products
@@ -142,6 +146,8 @@ Available subcommands:
 - `safe-query` - Execute SQL queries safely in read-only transactions
 - `info` - Show database connection info
 
+Most commands support the `--show-system` / `-S` flag to include system tables (e.g., `information_schema`, `pg_catalog` for PostgreSQL, or system schemas for MySQL).
+
 ### Schema Command
 
 Extract the complete database schema as JSON:
@@ -150,11 +156,17 @@ Extract the complete database schema as JSON:
 # Extract full schema as JSON
 vsequel schema --db postgresql://localhost/mydb
 
+# Include system tables in schema extraction
+vsequel schema --db postgresql://localhost/mydb --show-system
+
 # Save schema to file
 vsequel schema --db postgresql://localhost/mydb > schema.json
 
 # Process with jq
 vsequel schema --db postgresql://localhost/mydb | jq '.[] | .name'
+
+# Extract only system table names
+vsequel schema --db postgresql://localhost/mydb -S | jq '.[] | select(.schema == "information_schema" or .schema == "pg_catalog") | .name'
 ```
 
 ### PlantUML Command
@@ -167,6 +179,12 @@ vsequel plantuml --db postgresql://localhost/mydb
 
 # Generate simplified PlantUML (relationships only)
 vsequel plantuml --db postgresql://localhost/mydb --simple
+
+# Include system tables in PlantUML diagram
+vsequel plantuml --db postgresql://localhost/mydb --show-system
+
+# Generate simplified diagram with system tables
+vsequel plantuml --db postgresql://localhost/mydb --simple --show-system
 
 # Save diagram to file
 vsequel plantuml --db postgresql://localhost/mydb > diagram.puml
@@ -195,8 +213,14 @@ List all tables in the database:
 # Simple list (one per line)
 vsequel list --db postgresql://localhost/mydb
 
+# Include system tables
+vsequel list --db postgresql://localhost/mydb --show-system
+
 # JSON array
 vsequel list --db postgresql://localhost/mydb --output json
+
+# JSON array with system tables
+vsequel list --db postgresql://localhost/mydb --output json --show-system
 ```
 
 ### Sample Command
@@ -300,6 +324,9 @@ Get database connection information:
 
 ```bash
 vsequel info --db postgresql://localhost/mydb
+
+# Include system tables in database statistics
+vsequel info --db postgresql://localhost/mydb --show-system
 ````
 
 ### Global Options
@@ -314,11 +341,13 @@ vsequel info --db postgresql://localhost/mydb
 #### Schema Options
 
 - `-d, --db <url>` - Database connection URL (required)
+- `-S, --show-system` - Include system tables (e.g., `information_schema`, `pg_catalog`) (default: false)
 
 #### PlantUML Options
 
 - `-d, --db <url>` - Database connection URL (required)
 - `-s, --simple` - Generate simplified PlantUML diagram focusing only on relationships (default: false)
+- `-S, --show-system` - Include system tables (e.g., `information_schema`, `pg_catalog`) (default: false)
 
 #### Table Options
 
@@ -331,6 +360,17 @@ vsequel info --db postgresql://localhost/mydb
 
 - `--tables <list>` - Comma-separated list of tables (required)
 - `--output <type>` - Output format: `sql` (default - generates complete SELECT query), `json` (returns join path details)
+
+#### List Options
+
+- `-d, --db <url>` - Database connection URL (required)
+- `-o, --output <type>` - Output format: `simple` (default - one per line), `json` (JSON array)
+- `-S, --show-system` - Include system tables (e.g., `information_schema`, `pg_catalog`) (default: false)
+
+#### Info Options
+
+- `-d, --db <url>` - Database connection URL (required)
+- `-S, --show-system` - Include system tables in database statistics (default: false)
 
 #### Sample Options
 
@@ -359,6 +399,12 @@ plantuml diagram.puml  # Generate PNG/SVG
 
 # Generate simplified diagram for overview
 npx vsequel plantuml --db postgresql://localhost/mydb --simple > simple-diagram.puml
+
+# Generate comprehensive diagram including system tables (PostgreSQL)
+npx vsequel plantuml --db postgresql://localhost/mydb --show-system > complete-diagram.puml
+
+# Generate simplified diagram with system tables
+npx vsequel plantuml --db postgresql://localhost/mydb --simple --show-system > system-overview.puml
 ```
 
 #### Explore database structure
@@ -367,14 +413,23 @@ npx vsequel plantuml --db postgresql://localhost/mydb --simple > simple-diagram.
 # List all tables
 npx vsequel list --db postgresql://localhost/mydb
 
+# List all tables including system tables  
+npx vsequel list --db postgresql://localhost/mydb --show-system
+
 # Get complete schema as JSON
 npx vsequel schema --db postgresql://localhost/mydb > schema.json
+
+# Get complete schema including system tables
+npx vsequel schema --db postgresql://localhost/mydb --show-system > full-schema.json
 
 # Get details for specific table
 npx vsequel table --db postgresql://localhost/mydb --table users
 
 # Get sample data
 npx vsequel sample --db postgresql://localhost/mydb --table users
+
+# Explore system table structure (PostgreSQL)
+npx vsequel table --db postgresql://localhost/mydb --table columns --schema information_schema
 ```
 
 #### Generate SQL joins for reporting
@@ -446,6 +501,9 @@ const db = DatabaseService.fromUrl(
 
 // Pull all schemas
 const schemas = await db.getAllSchemas();
+
+// Pull all schemas including system tables
+const allSchemas = await db.getAllSchemas({ shouldShowSystem: true });
 
 // Pull schema for a specific table
 const tableSchema = await db.getSchema({
@@ -528,6 +586,10 @@ console.log(diagrams.simplified); // Simplified PlantUML
 const fullPlantuml = await db.getPlantuml({ type: 'full' });
 const simplePlantuml = await db.getPlantuml({ type: 'simple' });
 const defaultPlantuml = await db.getPlantuml(); // defaults to 'full'
+
+// Generate PlantUML diagrams including system tables
+const fullSystemPlantuml = await db.getPlantuml({ type: 'full', shouldShowSystem: true });
+const simpleSystemPlantuml = await db.getPlantuml({ type: 'simple', shouldShowSystem: true });
 ```
 
 ## Output Formats
@@ -588,13 +650,19 @@ mysql2://username:password@hostname:3306/database
 
 Static method to create a DatabaseService instance from a database URL.
 
-#### `getAllTableNames(): Promise<Array<{ schema: string; table: string }>>`
+#### `getAllTableNames(params?: { shouldShowSystem?: boolean }): Promise<Array<{ schema: string; table: string }>>`
 
 Retrieves all table names and their schemas from the database.
 
-#### `getAllSchemas(): Promise<TableSchema[]>`
+**Parameters:**
+- `shouldShowSystem`: Optional. Include system/internal tables (e.g., `information_schema`, `pg_catalog` for PostgreSQL). Defaults to `false`.
+
+#### `getAllSchemas(params?: { shouldShowSystem?: boolean }): Promise<TableSchema[]>`
 
 Retrieves the complete database schema including all tables, columns, indexes, and foreign keys.
+
+**Parameters:**
+- `shouldShowSystem`: Optional. Include system/internal tables (e.g., `information_schema`, `pg_catalog` for PostgreSQL). Defaults to `false`.
 
 #### `getSchema(params: { table: string; schema?: string }): Promise<TableSchema>`
 
@@ -641,12 +709,13 @@ Returns `null` if tables cannot be connected through any path.
 - Explore alternative relationships in complex schemas
 - Debug connection issues by seeing all possible paths
 
-#### `getPlantuml(params?: { type?: 'full' | 'simple' }): Promise<string>`
+#### `getPlantuml(params?: { type?: 'full' | 'simple'; shouldShowSystem?: boolean }): Promise<string>`
 
 Generates PlantUML ERD diagrams directly from the database. This is a convenient method that combines `getAllSchemas()` and the `generatePlantumlSchema()` function.
 
 **Parameters:**
 - `type`: Optional. Specifies whether to return 'full' (detailed) or 'simple' (simplified) PlantUML. Defaults to 'full'.
+- `shouldShowSystem`: Optional. Include system/internal tables in the diagram. Defaults to `false`.
 
 **Returns:** Promise that resolves to a PlantUML string.
 

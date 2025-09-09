@@ -1,0 +1,260 @@
+@startuml
+title Database Schema
+
+skinparam linetype ortho
+hide circle
+
+entity "mediawiki.archive" <<mediawiki>> {
+  * ar_namespace : INT
+  * ar_title : VARCHAR
+  ar_text : STRING
+  ar_comment : STRING
+  ar_user : INT
+  * ar_user_text : VARCHAR
+  * ar_timestamp : TIMESTAMPTZ
+  * ar_minor_edit : INT DEFAULT: 0
+  ar_flags : STRING
+  ar_rev_id : INT
+  ar_text_id : INT
+}
+
+entity "mediawiki.categorylinks" <<mediawiki>> {
+  * cl_from : INT <<FK>>
+  * cl_to : VARCHAR
+  cl_sortkey : VARCHAR DEFAULT: ''::character varying
+  * cl_timestamp : TIMESTAMPTZ
+}
+
+entity "mediawiki.hitcounter" <<mediawiki>> {
+  * hc_id : INT
+}
+
+entity "mediawiki.image" <<mediawiki>> {
+  * **img_name** : VARCHAR <<PK>>
+  --
+  * img_size : INT
+  * img_width : INT
+  * img_height : INT
+  img_metadata : STRING
+  img_bits : INT
+  img_media_type : VARCHAR
+  img_major_mime : VARCHAR DEFAULT: 'unknown'::character varying
+  img_minor_mime : VARCHAR DEFAULT: 'unknown'::character varying
+  * img_description : STRING
+  * img_user : INT <<FK>>
+  * img_user_text : VARCHAR
+  img_timestamp : TIMESTAMPTZ
+}
+
+entity "mediawiki.imagelinks" <<mediawiki>> {
+  * il_from : INT <<FK>>
+  * il_to : VARCHAR
+}
+
+entity "mediawiki.interwiki" <<mediawiki>> {
+  * iw_prefix : VARCHAR <<UNIQUE>>
+  * iw_url : VARCHAR
+  * iw_local : INT
+  * iw_trans : INT DEFAULT: 0
+}
+
+entity "mediawiki.ipblocks" <<mediawiki>> {
+  * **ipb_id** : INT <<PK>>
+  --
+  ipb_address : VARCHAR
+  ipb_user : INT
+  * ipb_by : INT <<FK>>
+  ipb_reason : STRING
+  * ipb_timestamp : TIMESTAMPTZ
+  * ipb_auto : INT DEFAULT: 0
+  ipb_expiry : TIMESTAMPTZ
+}
+
+entity "mediawiki.logging" <<mediawiki>> {
+  * log_type : VARCHAR
+  * log_action : VARCHAR
+  * log_timestamp : TIMESTAMPTZ
+  log_user : INT <<FK>>
+  log_namespace : INT
+  * log_title : VARCHAR
+  log_comment : VARCHAR
+  log_params : STRING
+}
+
+entity "mediawiki.math" <<mediawiki>> {
+  * math_inputhash : BYTEA <<UNIQUE>>
+  * math_outputhash : BYTEA
+  * math_html_conservativeness : INT
+  math_html : STRING
+  math_mathml : STRING
+}
+
+entity "mediawiki.objectcache" <<mediawiki>> {
+  keyname : CHARACTER <<UNIQUE>> DEFAULT: ''::bpchar
+  value : STRING
+  exptime : TIMESTAMPTZ
+}
+
+entity "mediawiki.oldimage" <<mediawiki>> {
+  * oi_name : VARCHAR
+  * oi_archive_name : VARCHAR
+  * oi_size : INT
+  * oi_width : INT
+  * oi_height : INT
+  * oi_bits : INT
+  oi_description : STRING
+  * oi_user : INT <<FK>>
+  * oi_user_text : VARCHAR
+  * oi_timestamp : TIMESTAMPTZ
+}
+
+entity "mediawiki.page" <<mediawiki>> {
+  * **page_id** : INT <<PK>>
+  --
+  * page_namespace : INT
+  * page_title : VARCHAR
+  page_restrictions : STRING DEFAULT: ''::text
+  * page_counter : INT DEFAULT: 0
+  * page_is_redirect : INT DEFAULT: 0
+  * page_is_new : INT DEFAULT: 0
+  * page_random : DECIMAL
+  page_touched : TIMESTAMPTZ
+  * page_latest : INT
+  page_len : INT DEFAULT: 0
+}
+
+entity "mediawiki.pagelinks" <<mediawiki>> {
+  * pl_from : INT <<FK>>
+  * pl_namespace : INT DEFAULT: 0
+  * pl_title : VARCHAR
+}
+
+entity "mediawiki.querycache" <<mediawiki>> {
+  * qc_type : VARCHAR
+  * qc_value : INT DEFAULT: 0
+  * qc_namespace : INT DEFAULT: 0
+  qc_title : VARCHAR
+}
+
+entity "mediawiki.recentchanges" <<mediawiki>> {
+  * **rc_id** : INT <<PK>>
+  --
+  rc_timestamp : TIMESTAMPTZ
+  rc_cur_time : TIMESTAMPTZ
+  * rc_user : INT DEFAULT: 0
+  rc_user_text : VARCHAR
+  * rc_namespace : INT DEFAULT: 0
+  * rc_title : VARCHAR
+  rc_comment : VARCHAR
+  * rc_minor : INT DEFAULT: 0
+  * rc_bot : INT DEFAULT: 0
+  * rc_new : INT DEFAULT: 0
+  rc_cur_id : INT
+  * rc_this_oldid : INT
+  * rc_last_oldid : INT
+  * rc_type : INT DEFAULT: 0
+  rc_moved_to_ns : INT
+  rc_moved_to_title : VARCHAR
+  * rc_patrolled : INT DEFAULT: 0
+  rc_ip : VARCHAR
+}
+
+entity "mediawiki.revision" <<mediawiki>> {
+  * **rev_page** : INT <<PK>>
+  * **rev_id** : INT <<PK>>
+  --
+  * rev_text_id : INT
+  rev_comment : STRING
+  * rev_user : INT DEFAULT: 0
+  * rev_user_text : VARCHAR DEFAULT: ''::character varying
+  * rev_timestamp : TIMESTAMPTZ
+  * rev_minor_edit : INT DEFAULT: 0
+  * rev_deleted : INT DEFAULT: 0
+}
+
+entity "mediawiki.searchindex" <<mediawiki>> {
+  * **si_page** : INT <<PK>>
+  --
+  si_title : TSVECTOR
+  si_text : TSVECTOR
+}
+
+entity "mediawiki.site_stats" <<mediawiki>> {
+  * ss_row_id : INT <<UNIQUE>>
+  ss_total_views : INT DEFAULT: 0
+  ss_total_edits : INT DEFAULT: 0
+  ss_good_articles : INT DEFAULT: 0
+  ss_total_pages : INT DEFAULT: '-1'::integer
+  ss_users : INT DEFAULT: '-1'::integer
+  ss_admins : INT DEFAULT: '-1'::integer
+}
+
+entity "mediawiki.text" <<mediawiki>> {
+  * **old_id** : INT <<PK>>
+  --
+  old_text : STRING
+  old_flags : STRING
+}
+
+entity "mediawiki.user" <<mediawiki>> {
+  * **user_id** : INT <<PK>>
+  --
+  * user_name : VARCHAR <<UNIQUE>> DEFAULT: ''::character varying
+  user_real_name : VARCHAR DEFAULT: ''::character varying
+  user_password : VARCHAR DEFAULT: ''::character varying
+  user_newpassword : VARCHAR DEFAULT: ''::character varying
+  user_email : VARCHAR DEFAULT: ''::character varying
+  user_options : STRING DEFAULT: ''::text
+  user_touched : TIMESTAMPTZ
+  user_token : CHARACTER DEFAULT: ''::bpchar
+  user_email_authenticated : TIMESTAMPTZ
+  user_email_token : CHARACTER
+  user_email_token_expires : TIMESTAMPTZ
+}
+
+entity "mediawiki.user_groups" <<mediawiki>> {
+  * **ug_user** : INT <<PK>>
+  * **ug_group** : VARCHAR <<PK>>
+  --
+}
+
+entity "mediawiki.user_newtalk" <<mediawiki>> {
+  * user_id : INT DEFAULT: 0
+  * user_ip : VARCHAR DEFAULT: ''::character varying
+}
+
+entity "mediawiki.validate" <<mediawiki>> {
+  * val_user : INT DEFAULT: 0
+  * val_page : INT DEFAULT: 0
+  * val_revision : INT DEFAULT: 0
+  * val_type : INT DEFAULT: 0
+  val_value : INT DEFAULT: 0
+  val_comment : VARCHAR
+  val_ip : VARCHAR
+}
+
+entity "mediawiki.watchlist" <<mediawiki>> {
+  * wl_user : INT <<FK>>
+  * wl_namespace : INT DEFAULT: 0
+  * wl_title : VARCHAR
+  wl_notificationtimestamp : TIMESTAMPTZ
+}
+
+entity User <<public>> {
+  * **id** : STRING <<PK>>
+  --
+}
+
+'Relationships
+"mediawiki.page" ||--|{ "mediawiki.categorylinks" : categorylinks cl from fkey
+"mediawiki.user" ||--|{ "mediawiki.image" : image img user fkey
+"mediawiki.page" ||--|{ "mediawiki.imagelinks" : imagelinks il from fkey
+"mediawiki.user" ||--|{ "mediawiki.ipblocks" : ipblocks ipb by fkey
+"mediawiki.user" ||--o{ "mediawiki.logging" : logging log user fkey
+"mediawiki.user" ||--|{ "mediawiki.oldimage" : oldimage oi user fkey
+"mediawiki.page" ||--|{ "mediawiki.pagelinks" : pagelinks pl from fkey
+"mediawiki.page" ||--|{ "mediawiki.revision" : revision rev page fkey
+"mediawiki.user" ||--|{ "mediawiki.user_groups" : user groups ug user fkey
+"mediawiki.user" ||--|{ "mediawiki.watchlist" : watchlist wl user fkey
+
+@enduml

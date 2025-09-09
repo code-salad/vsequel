@@ -1,6 +1,11 @@
 import { command, option } from 'cmd-ts';
 import { DatabaseService } from '../../services/database';
-import { dbOption, handleCliError, listOutputType } from '../utils';
+import {
+  dbOption,
+  handleCliError,
+  listOutputType,
+  showSystemOption,
+} from '../utils';
 
 export const listCommand = command({
   name: 'list',
@@ -13,9 +18,10 @@ export const listCommand = command({
   Examples:
     vsequel list --db postgresql://localhost/mydb
     vsequel list --db mysql://localhost/mydb --output json
-    vsequel list --db postgresql://localhost/mydb > table-list.txt`,
+    vsequel list --db postgresql://localhost/mydb --show-system > table-list.txt`,
   args: {
     db: dbOption,
+    showSystem: showSystemOption,
     output: option({
       type: listOutputType,
       long: 'output',
@@ -26,12 +32,14 @@ export const listCommand = command({
         • json - Array of table names (schema.table) in JSON format for programmatic processing`,
     }),
   },
-  handler: async ({ db, output }): Promise<void> => {
+  handler: async ({ db, showSystem, output }): Promise<void> => {
     try {
       const databaseService = DatabaseService.fromUrl(db);
-      const schemas = await databaseService.getAllSchemas();
-      const tableNames = schemas.map(
-        (schema) => `${schema.schema}.${schema.name}`
+      const tables = await databaseService.getAllTableNames({
+        shouldShowSystem: showSystem,
+      });
+      const tableNames = tables.map(
+        (table) => `${table.schema}.${table.table}`
       );
 
       if (output === 'json') {
