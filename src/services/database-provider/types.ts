@@ -28,9 +28,13 @@ export interface JoinPath {
 }
 
 export interface DatabaseProvider {
-  getAllTableNames(): Promise<Array<{ schema: string; table: string }>>;
+  getAllTableNames(params?: {
+    shouldShowSystem?: boolean;
+  }): Promise<Array<{ schema: string; table: string }>>;
   getSchema(params: { table: string; schema?: string }): Promise<TableSchema>;
-  getAllSchemas(): Promise<TableSchema[]>;
+  getAllSchemas(params?: {
+    shouldShowSystem?: boolean;
+  }): Promise<TableSchema[]>;
   getSampleData(params: {
     table: string;
     schema?: string;

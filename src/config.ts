@@ -10,4 +10,4 @@ export const EnvSchema = z.object({
     .default('mysql://root:rootpassword@localhost:3306/reflect_erd'),
 });
 
-export const env = EnvSchema.parse({});
+export const env = EnvSchema.parse(process.env);

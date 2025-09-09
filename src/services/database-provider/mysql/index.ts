@@ -1,4 +1,5 @@
 import mysql, { type RowDataPacket } from 'mysql2/promise';
+import { default as PQueue } from 'p-queue';
 import type {
   ColumnSchema,
   ForeignKey,
@@ -59,12 +60,18 @@ interface MySQLIndexRow extends RowDataPacket {
 
 export class MySQLProvider implements DatabaseProvider {
   private readonly databaseUrl: string;
+  private readonly maxConcurrency: number;
 
-  constructor(databaseUrl: string) {
+  constructor(databaseUrl: string, options?: { maxConcurrency?: number }) {
     this.databaseUrl = databaseUrl;
+    this.maxConcurrency = options?.maxConcurrency || 10;
   }
 
-  async getAllTableNames(): Promise<Array<{ schema: string; table: string }>> {
+  async getAllTableNames({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<Array<{ schema: string; table: string }>> {
     const connection = await mysql.createConnection(this.databaseUrl);
 
     try {
@@ -76,8 +83,24 @@ export class MySQLProvider implements DatabaseProvider {
         throw new Error('Database name not found in MySQL URL');
       }
 
-      const [tables] = await connection.execute<MySQLTableRow[]>(
-        `
+      let query: string;
+      let queryParams: string[];
+
+      if (shouldShowSystem) {
+        // Include all tables from all schemas including system schemas
+        // This will include information_schema, mysql, performance_schema, sys, and user schemas
+        query = `
+        SELECT 
+          TABLE_SCHEMA as schema_name,
+          TABLE_NAME as table_name
+        FROM information_schema.TABLES
+        WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')
+        ORDER BY TABLE_SCHEMA, TABLE_NAME
+      `;
+        queryParams = [];
+      } else {
+        // Only include tables from the specified database schema
+        query = `
         SELECT 
           TABLE_SCHEMA as schema_name,
           TABLE_NAME as table_name
@@ -85,8 +108,13 @@ export class MySQLProvider implements DatabaseProvider {
         WHERE TABLE_SCHEMA = ?
           AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')
         ORDER BY TABLE_NAME
-      `,
-        [dbName]
+      `;
+        queryParams = [dbName];
+      }
+
+      const [tables] = await connection.execute<MySQLTableRow[]>(
+        query,
+        queryParams
       );
 
       return tables.map((t) => ({
@@ -288,16 +316,30 @@ export class MySQLProvider implements DatabaseProvider {
     }
   }
 
-  async getAllSchemas(): Promise<TableSchema[]> {
+  async getAllSchemas({
+    shouldShowSystem = false,
+  }: {
+    shouldShowSystem?: boolean;
+  } = {}): Promise<TableSchema[]> {
     // Get all table names using the existing method
-    const tables = await this.getAllTableNames();
+    const tables = await this.getAllTableNames({ shouldShowSystem });
 
-    // Pull schema for each table using the existing getSchema method
-    const tablePromises = tables.map(({ schema, table }) =>
-      this.getSchema({ table, schema })
+    // Use PQueue to limit concurrent database operations
+    const queue = new PQueue({ concurrency: this.maxConcurrency });
+
+    // Queue all schema fetching operations
+    const results = await Promise.all(
+      tables.map(({ schema, table }) =>
+        queue.add(async (): Promise<TableSchema> => {
+          return await this.getSchema({ table, schema });
+        })
+      )
     );
 
-    return Promise.all(tablePromises);
+    // Filter out any void results (defensive programming)
+    return results.filter(
+      (result): result is TableSchema => result !== undefined
+    );
   }
 
   async getSampleData(params: {

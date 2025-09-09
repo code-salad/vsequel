@@ -1,6 +1,6 @@
 import { command } from 'cmd-ts';
 import { DatabaseService } from '../../services/database';
-import { dbOption, handleCliError } from '../utils';
+import { dbOption, handleCliError, showSystemOption } from '../utils';
 
 export const infoCommand = command({
   name: 'info',
@@ -12,12 +12,13 @@ export const infoCommand = command({
   
   Examples:
     vsequel info --db postgresql://localhost/mydb
-    vsequel info --db mysql://localhost/mydb > database-summary.json
+    vsequel info --db mysql://localhost/mydb --show-system > database-summary.json
     vsequel info --db postgresql://user:pass@remote-host:5432/production_db`,
   args: {
     db: dbOption,
+    showSystem: showSystemOption,
   },
-  handler: async ({ db }): Promise<void> => {
+  handler: async ({ db, showSystem }): Promise<void> => {
     try {
       const databaseService = DatabaseService.fromUrl(db);
 
@@ -25,7 +26,9 @@ export const infoCommand = command({
       const provider = databaseService.getProvider();
 
       // Get all table names
-      const tables = await databaseService.getAllTableNames();
+      const tables = await databaseService.getAllTableNames({
+        shouldShowSystem: showSystem,
+      });
 
       // Group tables by schema
       const schemaMap = new Map<string, string[]>();

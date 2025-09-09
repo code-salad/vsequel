@@ -1,6 +1,6 @@
 import { command, flag } from 'cmd-ts';
 import { DatabaseService } from '../../services/database';
-import { dbOption, handleCliError } from '../utils';
+import { dbOption, handleCliError, showSystemOption } from '../utils';
 
 export const plantumlCommand = command({
   name: 'plantuml',
@@ -11,10 +11,11 @@ export const plantumlCommand = command({
   
   Examples:
     vsequel plantuml --db postgresql://user:pass@localhost/mydb
-    vsequel plantuml --db mysql://user:pass@localhost/mydb -s > simple-schema.puml
+    vsequel plantuml --db mysql://user:pass@localhost/mydb -s --show-system > simple-schema.puml
     vsequel plantuml --db postgresql://localhost/mydb --simple > schema.puml`,
   args: {
     db: dbOption,
+    showSystem: showSystemOption,
     simple: flag({
       long: 'simple',
       short: 's',
@@ -23,7 +24,7 @@ export const plantumlCommand = command({
         When false (default), includes detailed columns, types, and constraints.`,
     }),
   },
-  handler: async ({ db, simple = false }): Promise<void> => {
+  handler: async ({ db, showSystem, simple = false }): Promise<void> => {
     try {
       console.error('Generating PlantUML diagram...');
 
@@ -31,6 +32,7 @@ export const plantumlCommand = command({
 
       const result = await databaseService.getPlantuml({
         type: simple ? 'simple' : 'full',
+        shouldShowSystem: showSystem,
       });
 
       console.error(

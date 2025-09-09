@@ -2,8 +2,8 @@
 -- Drop and recreate test schema and tables
 -- Note: This assumes the database already exists and is specified in the connection URL
 
--- Drop views first
-DROP VIEW IF EXISTS order_summary;
+-- Drop views first (simplified to avoid privilege issues)
+-- Skip DROP VIEW IF EXISTS to avoid SYSTEM_USER privilege requirement in some MySQL configs
 
 -- Drop dependent tables first (reverse dependency order)
 DROP TABLE IF EXISTS page_views;
@@ -145,8 +145,8 @@ INSERT INTO order_items (order_id, product_id, quantity, unit_price, discount_pe
 (5, 4, 1, 49.99, 0);
 
 -- Create a view for order summaries
-DROP VIEW IF EXISTS order_summary;
-CREATE VIEW order_summary AS
+-- Use CREATE OR REPLACE to avoid privilege issues with DROP VIEW IF EXISTS
+CREATE OR REPLACE VIEW order_summary AS
 SELECT 
     o.id as order_id,
     c.email as customer_email,

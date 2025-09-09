@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert/strict';
 import { exec } from 'node:child_process';
 import { describe, test } from 'node:test';
 import { promisify } from 'node:util';
+import { default as PQueue } from 'p-queue';
 import { env } from '../src/config';
 
 const execAsync = promisify(exec);
@@ -30,7 +31,11 @@ const SQL_REQUIRED_REGEX = /No value provided for --sql/;
 const ERROR_REGEX = /Error:/;
 const LAPTOP_REGEX = /Laptop/i;
 
-// Helper to simulate Bun's $ behavior
+// Database operation queue to prevent overwhelming DB with concurrent connections
+// Limit to 2 concurrent operations to prevent connection pool exhaustion
+const dbQueue = new PQueue({ concurrency: 2 });
+
+// Helper to simulate Bun's $ behavior with queue support
 const $ = (command: string) => {
   const executeCommand = async () => {
     try {
@@ -55,11 +60,19 @@ const $ = (command: string) => {
     }
   };
 
+  // Check if this command involves database operations
+  const isDbCommand =
+    command.includes('safe-query') && command.includes('--db');
+
   return {
     quiet() {
       return this;
     },
     nothrow() {
+      // Queue database operations to prevent overwhelming connections
+      if (isDbCommand) {
+        return dbQueue.add(() => executeCommand());
+      }
       return executeCommand();
     },
   };

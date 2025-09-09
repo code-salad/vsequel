@@ -546,9 +546,9 @@ describe('docker integration tests', () => {
           schema: MYSQL_DB,
         });
 
-        // Both should return the same number of products
-        assert.equal(pgProducts.length, 10);
-        assert.equal(myProducts.length, 10);
+        // Both should return 5 products (default limit)
+        assert.equal(pgProducts.length, 5);
+        assert.equal(myProducts.length, 5);
 
         // Verify first product has same name in both
         if (pgProducts[0] && myProducts[0]) {

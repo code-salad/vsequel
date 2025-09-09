@@ -59,6 +59,7 @@
     "@tsconfig/recommended": "^1.0.10",
     "@types/node": "^24.2.1",
     "lefthook": "^1.12.2",
+    "p-queue": "^8.1.1",
     "semantic-release": "^24.2.7",
     "tsx": "^4.20.5",
     "ultracite": "5.1.2",
