@@ -1,6 +1,6 @@
 {
   "name": "vsequel",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "description": "A CLI tool for extracting database schemas and generating ERD diagrams from PostgreSQL and MySQL databases",
   "keywords": [
     "erd",

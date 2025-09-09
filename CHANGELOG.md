@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/code-salad/vsequel/compare/v3.0.3...v3.1.0) (2025-09-09)
+
+
+### Features
+
+* add support for displaying system tables with --show-system flag ([#5](https://github.com/code-salad/vsequel/issues/5)) ([1b9c5dd](https://github.com/code-salad/vsequel/commit/1b9c5dd6b535b43dd62f97133ba3b6f37ccb9e0b))
+
 ## [3.0.3](https://github.com/code-salad/vsequel/compare/v3.0.2...v3.0.3) (2025-09-07)
 
 
